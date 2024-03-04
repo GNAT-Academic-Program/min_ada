@@ -1,0 +1,16 @@
+name = "min_ada_target"
+description = "Shiny new project"
+version = "0.1.0-dev"
+
+authors = ["Samuel Dion"]
+maintainers = ["Samuel Dion <samuelqwe@icloud.com>"]
+maintainers-logins = ["puzzledsam"]
+
+executables = ["min_ada_target"]
+
+[[depends-on]]
+stm32_gui = "0.1.0"
+stm32f429disco = "0.1.0"
+
+[[pins]]
+gnat_arm_elf = { version='12.2.1' }
