@@ -1,58 +1,81 @@
-with Ada.Text_IO;    use Ada.Text_IO;
+with Ada.Text_IO;                   use Ada.Text_IO;
+with Ada.Streams;                   use Ada.Streams;
 
-with GNAT.Serial_Communications;
-with Uart;
-
-with Gtk.Main, Gtk.Window;
+with GNAT.Serial_Communications;    use GNAT.Serial_Communications;
 
 procedure Min_Ada_Host is
-   Window            : Gtk.Window.Gtk_Window;
+   S_Port      : aliased Serial_Port;
+   S_Port_Name : constant Port_Name --  This will vary per system
+                  := "/dev/cu.usbmodem103";
 
-   Is_Connected      : Boolean; -- Board connection status
-   Serial_Port       : GNAT.Serial_Communications.Serial_Port;
-   Port_Location     : constant
-                        GNAT.Serial_Communications.Port_Name :=
-                        "/dev/cu.usbmodem103"; -- This will vary per system
+   Msg_Size : constant Integer := 20;
+   subtype Message is Stream_Element_Array (1 .. Stream_Element_Offset (Msg_Size));
 
-   --UART_obj          : Uart.Read;
-
-   task Connect_Board;
-
-   task body Connect_Board is
+   --  Context for the min protocol
+   --  Context     : Min_Ada.Min_Context;
+begin
+   declare
+      Data        : constant String := "My message" & ASCII.NUL;
+      Buffer      : Message;
    begin
-      Is_Connected := True;
+      --  -- Initialize MIN context
+      --  Min_Ada.Min_Init_Context (Context => Context);
+      --  My_Min_Ada.Override_Min_Application_Handler; --  We must override the handler
+
+      S_Port.Open (Name => S_Port_Name);
+
+      S_Port.Set (Rate         => B115200,
+                  Bits         => CS8,
+                  Stop_Bits    => One,
+                  Parity       => None,
+                  Flow         => None);
+
+      --  Convert message (String -> Stream_Element_Array)
+      for K in Data'Range loop
+         --  Put_Line(K'Image & ": Character '" & Data (K) & "' with pos:" & Integer'Image (Character'Pos (Data (K))));
+         Buffer (Stream_Element_Offset (K)) := Character'Pos (Data (K));
+      end loop;
+
+      S_Port.Write (Buffer => Buffer);
+      Put_Line ("Sent message '" & Data & "' through serial connection.");
+
+      New_Line;
+      Put_Line("Waiting for reply from board...");
 
       declare
+         Buffer_Rcv     : Stream_Element_Array (1 .. 1);
+         Last_Rcv       : Stream_Element_Offset;
+         Received_Char  : Character;
+
+         Msg_Rcv        : String (1 .. Msg_Size);
+         Msg_Length     : Integer := 0;
       begin
-         GNAT.Serial_Communications.Open
-            (Port => Serial_Port,
-            Name => Port_Location);
+         Put("Receiving data...");
+         Msg_Rcv := (others => ASCII.NUL); --  Init the Msg string to NUL characters
+         loop
+            S_Port.Read (Buffer   => Buffer_Rcv,
+                         Last     => Last_Rcv);
+            Received_Char := Character'Val (Buffer_Rcv (1));
+            Msg_Length := Msg_Length + 1;
+            Msg_Rcv (Msg_Length) := Received_Char;
+            exit when Received_Char = ASCII.NUL;
+            delay 2.0;
+         end loop;
+            Put_Line("Complete!");
+            New_Line;
+            Put_Line ("Length:" & Msg_Length'Image);
+            Put_Line("Reply from board: " & Msg_Rcv);
 
-         GNAT.Serial_Communications.Set
-            (Port => Serial_Port,
-            Rate => GNAT.Serial_Communications.B921600);
-      exception
-         when GNAT.Serial_Communications.Serial_Error =>
-            Put_Line("Serial Error - Board not connected");
-            Is_Connected := False;
+            --  for K in 1 .. Last_Rcv loop
+            --     Put(Character'Val (Buffer_Rcv (K)));
+            --  end loop;
       end;
+      
+   exception
+      when Serial_Error =>
+         Put_Line ("Serial Error - Board not connected or serial connection already active");
+   end;
 
-      If Is_Connected = True then
-         --UART_obj.Start;
-         Put_Line("Board connected! The program will end in 5 seconds.");
-         delay 5.0;
-         --UART_obj.Stop;
-         GNAT.Serial_Communications.Close(Serial_Port);
-         Put_Line("Disconnected!");
-      end if;
+   S_Port.Close;
 
-      delay 1.0;
-      Gtk.Main.Main_Quit;
-   end Connect_Board;
-begin
-   Gtk.Main.Init;
-   Gtk.Window.Gtk_New (Window);
-   Window.Set_Default_Size (1200, 600);
-   Gtk.Window.Show (Window);
-   Gtk.Main.Main;
 end Min_Ada_Host;

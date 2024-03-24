@@ -82,6 +82,7 @@ package body Min_Ada is
       Frame_Checksum : Interfaces.Unsigned_32 with Address =>
          Context.Rx_Frame_Checksum'Address;
    begin
+      Put_Line ("MIN receiving a data byte: " & Byte'Image (Data));
       if Context.Rx_Header_Bytes_Seen = 2 then
          Context.Rx_Header_Bytes_Seen := 0;
 
@@ -142,6 +143,7 @@ package body Min_Ada is
             end if;
 
          when RECEIVING_PAYLOAD =>
+            Put_Line ("Received frame is payload");
             Context.Rx_Frame_Payload_Buffer
                (Context.Rx_Frame_Payload_Bytes + 1) := Data;
             Context.Rx_Frame_Payload_Bytes :=

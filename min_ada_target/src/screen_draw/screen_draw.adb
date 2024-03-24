@@ -2,12 +2,11 @@ with STM32.Board;           use STM32.Board;
 with HAL.Bitmap;            use HAL.Bitmap;
 with HAL.Touch_Panel;       use HAL.Touch_Panel;
 with BMP_Fonts;
---with Ada.Real_Time; use Ada.Real_Time;
 
 with Bitmapped_Drawing;
 --with Bitmap_Color_Conversion; use Bitmap_Color_Conversion;
 
-with HAL.Framebuffer;  
+with HAL.Framebuffer;
 
 package body Screen_Draw is
 
@@ -20,24 +19,6 @@ package body Screen_Draw is
       Display.Hidden_Buffer (1).Fill;
       Display.Update_Layer (1, Copy_Back => True);
    end Clear;
-
-   procedure TestMsg
-      (Num: Integer := 1)
-   is
-   begin
-      Display.Hidden_Buffer (1).Set_Source (BG);
-      Display.Hidden_Buffer (1).Fill;
-
-      Bitmapped_Drawing.Draw_String
-         (Display.Hidden_Buffer (1).all, 
-         Start => (10, 10),
-         Msg => "This is my test message " & Integer'Image (Num), 
-         Font => BMP_Fonts.Font8x8,
-         Foreground => FG,
-         Background => BG);
-
-      Display.Update_Layer (1, Copy_Back => True);
-   end TestMsg;
 
    procedure WriteMsg
       (Msg: String)
@@ -77,7 +58,7 @@ begin
    --        begin
    --           -- Detect touch
    --           if State'Length = 1 then
-   --              Screen_Draw.TestMsg(MsgIndex);
+   --              Screen_Draw.WriteMsg ("This is a test:" & MsgIndex'Image);
    --              MsgIndex := MsgIndex + 1;
 
    --              -- Wait for touch release (optional)

@@ -7,6 +7,3 @@ maintainers = ["Samuel Dion <samuelqwe@icloud.com>"]
 maintainers-logins = ["puzzledsam"]
 
 executables = ["min_ada_host"]
-
-[[depends-on]]
-gtkada = "^24.0.0"
