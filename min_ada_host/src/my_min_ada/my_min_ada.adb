@@ -1,47 +1,31 @@
 with Ada.Text_IO;    use Ada.Text_IO;
 
--- with Globals;
-
 package body My_Min_Ada is
-
-   --  Type to build a Reading from two Bytes
-   type Reading_From_Bytes is array (1 .. 2) of Min_Ada.Byte;
 
    procedure Min_Application_Handler (
       ID              : Min_Ada.App_ID;
       Payload         : Min_Ada.Min_Payload;
       Payload_Length  : Min_Ada.Byte
    ) is
-      Reading_Array   : Reading_From_Bytes;
-      Current_Reading : Integer with Address => Reading_Array'Address;
+      Message        : String (1 .. Integer (Payload_Length));
    begin
 
       Put_Line ("MIN Application Handler callback event.");
 
-      --  Check if first frame to reset the buffers (this makes sure the
-      --  data in the buffers is always contiguous
-      if ID = 5 or else ID = 6 or else ID = 7 then
-         Put_Line ("First frame with ID: " & ID'Image);
-         --  Globals.Buffered_Data.Reset_Buffer (
-         --     Channel => Integer'Value (ID'Image)
-         --  );
+      --  Check if first frame ID is 5 (comes from our target device)
+      --  We could reset a buffer here, if needed
+      if ID = 5 then
+         Put_Line ("First frame, has ID" & ID'Image);
       end if;
 
-      --  Loop over all the data in the payload
+      --  Loop over all the data in the payload to reconstruct the msg
       for I in 1 .. Integer'Val (Payload_Length) loop
-         if I mod 2 /= 0 then
-            Reading_Array (2) := Payload (Min_Ada.Byte (I));
-         else
-            Reading_Array (1) := Payload (Min_Ada.Byte (I));
-
-            Put_Line ("Payload data is :" & Integer'Image (Current_Reading));
-            --  Save the current number in the data buffer
-            --  Globals.Buffered_Data.Set_Data (
-            --     Channel => Integer'Value (ID'Image),
-            --     Data => Float (Current_Reading)
-            --  );
-         end if;
+         Message (I) := Character'Val (Payload (Min_Ada.Byte (I)));
       end loop;
+
+      Put_Line ("Payload data is : " & Message);
+      New_Line;
+
    end Min_Application_Handler;
 
    --  Overrides Min_Application_Handler

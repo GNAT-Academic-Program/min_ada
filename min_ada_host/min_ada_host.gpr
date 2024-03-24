@@ -3,7 +3,6 @@ with "config/min_ada_host_config.gpr";
 project Min_Ada_Host is
 
    for Source_Dirs use ("src/",
-                        "src/globals",
                         "src/min_ada",
                         "src/my_min_ada",
                         "config/");
