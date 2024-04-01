@@ -1,4 +1,4 @@
-with System.CRC32;
+with GNAT.CRC32;
 
 package Min_Ada is
 
@@ -52,10 +52,10 @@ package Min_Ada is
       Rx_Frame_Checksum        : CRC_Bytes;
 
       --  Calculated checksum for receiving frame
-      Rx_Checksum              : System.CRC32.CRC32;
+      Rx_Checksum              : GNAT.CRC32.CRC32;
 
       --  Calculated checksum for sending frame
-      Tx_Checksum              : System.CRC32.CRC32;
+      Tx_Checksum              : GNAT.CRC32.CRC32;
 
       --  Countdown of header bytes to reset state
       Rx_Header_Bytes_Seen     : Byte;

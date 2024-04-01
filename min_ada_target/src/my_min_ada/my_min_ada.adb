@@ -1,5 +1,4 @@
 with HAL;
-with STM32.USARTs; use STM32.USARTs;
 with STM32.Device; use STM32.Device;
 
 with Uart_For_Board;
@@ -12,7 +11,7 @@ package body My_Min_Ada is
       Payload         : Min_Ada.Min_Payload;
       Payload_Length  : Min_Ada.Byte
    ) is
-      Message        : String (1 .. Integer (Payload_Length));
+      Message         : String (1 .. Integer (Payload_Length));
    begin
 
       Screen_Draw.WriteMsg ("MIN Application Handler callback event.");

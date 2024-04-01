@@ -27,7 +27,7 @@ package body Min_Ada is
                            );
    begin
       Context.Tx_Header_Byte_Countdown := 2;
-      System.CRC32.Initialize (Context.Tx_Checksum);
+      GNAT.CRC32.Initialize (Context.Tx_Checksum);
 
       Tx_Byte (
          Data => Header.Header_1
@@ -48,7 +48,7 @@ package body Min_Ada is
          Stuffed_Tx_Byte (Context, Payload (P), True);
       end loop;
 
-      Checksum := System.CRC32.Get_Value (Context.Tx_Checksum);
+      Checksum := GNAT.CRC32.Get_Value (Context.Tx_Checksum);
 
       Stuffed_Tx_Byte (Context, Checksum_Bytes (4), False);
       Stuffed_Tx_Byte (Context, Checksum_Bytes (3), False);
@@ -112,8 +112,8 @@ package body Min_Ada is
          when RECEIVING_ID_CONTROL =>
             Context.Rx_Frame_ID_Control    := Data;
             Context.Rx_Frame_Payload_Bytes := 0;
-            System.CRC32.Initialize (Context.Rx_Checksum);
-            System.CRC32.Update (Context.Rx_Checksum, Character'Val (Data));
+            GNAT.CRC32.Initialize (Context.Rx_Checksum);
+            GNAT.CRC32.Update (Context.Rx_Checksum, Character'Val (Data));
 
             if MSB_Is_One (
                Data => Data
@@ -127,13 +127,13 @@ package body Min_Ada is
 
          when RECEIVING_SEQ =>
             Context.Rx_Frame_Seq := Data;
-            System.CRC32.Update (Context.Rx_Checksum, Character'Val (Data));
+            GNAT.CRC32.Update (Context.Rx_Checksum, Character'Val (Data));
             Context.Rx_Frame_State := RECEIVING_LENGTH;
 
          when RECEIVING_LENGTH =>
             Context.Rx_Frame_Length := Data;
             Context.Rx_Control      := Data;
-            System.CRC32.Update (Context.Rx_Checksum, Character'Val (Data));
+            GNAT.CRC32.Update (Context.Rx_Checksum, Character'Val (Data));
 
             if Context.Rx_Frame_Length > 0 then
                Context.Rx_Frame_State := RECEIVING_PAYLOAD;
@@ -146,7 +146,7 @@ package body Min_Ada is
                (Context.Rx_Frame_Payload_Bytes + 1) := Data;
             Context.Rx_Frame_Payload_Bytes :=
                Context.Rx_Frame_Payload_Bytes + 1;
-            System.CRC32.Update (Context.Rx_Checksum, Character'Val (Data));
+            GNAT.CRC32.Update (Context.Rx_Checksum, Character'Val (Data));
             Context.Rx_Frame_Length :=
                Context.Rx_Frame_Length - 1;
             if Context.Rx_Frame_Length = 0 then
@@ -168,7 +168,7 @@ package body Min_Ada is
          when RECEIVING_CHECKSUM_1 =>
             Context.Rx_Frame_Checksum (1) := Data;
 
-            Real_Checksum := System.CRC32.Get_Value (Context.Rx_Checksum);
+            Real_Checksum := GNAT.CRC32.Get_Value (Context.Rx_Checksum);
             declare
                Real2 : CRC_Bytes with Address => Real_Checksum'Address;
             begin
@@ -213,7 +213,7 @@ package body Min_Ada is
          Data => Data
       );
       if CRC then
-         System.CRC32.Update (Context.Tx_Checksum, Character'Val (Data));
+         GNAT.CRC32.Update (Context.Tx_Checksum, Character'Val (Data));
       end if;
 
       if Data = HEADER_BYTE then
