@@ -31,11 +31,9 @@
 
 --  The file declares the main procedure for the demonstration.
 
-with HAL.UART;      use HAL.UART;
+--with HAL.UART;      use HAL.UART;
 with STM32.Device;  use STM32.Device;
 with STM32.GPIO;    use STM32.GPIO;
-
-with Ada.Streams;   use Ada.Streams;
 
 package body Uart_For_Board is
 

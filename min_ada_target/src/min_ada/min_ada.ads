@@ -5,7 +5,6 @@ package Min_Ada is
    type Bit     is mod 2**1     with Size => 1;
    type UInt4   is mod 2**4     with Size => 4;
    type Byte    is mod 2**8     with Size => 8;
-   type UInt16  is mod 2**16    with Size => 16;
    type UInt32  is mod 2**32    with Size => 32;
 
    MAX_PAYLOAD : constant Byte := 255;
@@ -139,7 +138,7 @@ package Min_Ada is
       Payload        : Min_Payload;
       Payload_Length : Byte
    );
-
+ 
    procedure Set_Min_Application_Handler_Callback (
       Callback : Min_Application_Handler_Access
    );

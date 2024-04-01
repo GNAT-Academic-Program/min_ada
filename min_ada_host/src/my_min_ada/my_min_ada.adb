@@ -1,4 +1,5 @@
-with Ada.Text_IO;    use Ada.Text_IO;
+with Ada.Text_IO; use Ada.Text_IO;
+with Ada.Streams; use Ada.Streams;
 
 package body My_Min_Ada is
 
@@ -26,7 +27,21 @@ package body My_Min_Ada is
       Put_Line ("Payload data is : " & Message);
       New_Line;
 
+      Message_Received := To_Unbounded_String (Message);
+      Received := True;
+
    end Min_Application_Handler;
+
+   procedure Tx_Byte (
+      Data : Min_Ada.Byte
+   ) is
+      Buffer   : Stream_Element_Array (1 .. 1);
+   begin
+      Put_Line ("We are sending: " & Byte'Image (Data));
+      Buffer (Stream_Element_Offset (1)) := Stream_Element (Data);
+      UART_Port.Write (Buffer => Buffer);
+      delay 0.1; --  TODO: Remove delay (probably buffer tx byte calls and the send the whole buffer out in one go)
+   end Tx_Byte;
 
    --  Overrides Min_Application_Handler
    procedure Override_Min_Application_Handler
@@ -36,5 +51,14 @@ package body My_Min_Ada is
          Callback => Min_Application_Handler'Access
       );
    end Override_Min_Application_Handler;
+
+   --  Overrides Tx_Byte
+   procedure Override_Tx_Byte
+   is
+   begin
+      Min_Ada.Set_Tx_Byte_Callback (
+         Callback => Tx_Byte'Access
+      );
+   end Override_Tx_Byte;
 
 end My_Min_Ada;

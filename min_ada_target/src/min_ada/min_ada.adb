@@ -79,8 +79,8 @@ package body Min_Ada is
       Data    : Byte
    ) is
       Real_Checksum  : Interfaces.Unsigned_32;
-      Frame_Checksum : Interfaces.Unsigned_32 with Address =>
-         Context.Rx_Frame_Checksum'Address;
+      --  Frame_Checksum : Interfaces.Unsigned_32 with Address =>
+      --       Context.Rx_Frame_Checksum'Address;
    begin
       if Context.Rx_Header_Bytes_Seen = 2 then
          Context.Rx_Header_Bytes_Seen := 0;
@@ -169,13 +169,17 @@ package body Min_Ada is
             Context.Rx_Frame_Checksum (1) := Data;
 
             Real_Checksum := System.CRC32.Get_Value (Context.Rx_Checksum);
-            if Frame_Checksum /= Real_Checksum then
-               --  Frame fails the checksum and is dropped
-               Context.Rx_Frame_State := SEARCHING_FOR_SOF;
-               Put_Line ("Frame dropped!");
-            else
-               Context.Rx_Frame_State := RECEIVING_EOF;
-            end if;
+            declare
+               Real2 : CRC_Bytes with Address => Real_Checksum'Address;
+            begin
+               if Context.Rx_Frame_Checksum /= Real2 then
+                  --  Frame fails the checksum and is dropped
+                  Context.Rx_Frame_State := SEARCHING_FOR_SOF;
+                  Put_Line ("Frame dropped!");
+               else
+                  Context.Rx_Frame_State := RECEIVING_EOF;
+               end if;
+            end;
 
          when RECEIVING_EOF =>
             if Data = EOF_BYTE then
