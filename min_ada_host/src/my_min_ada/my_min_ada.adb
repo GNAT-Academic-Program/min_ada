@@ -1,5 +1,4 @@
 with Ada.Text_IO; use Ada.Text_IO;
-with Ada.Streams; use Ada.Streams;
 
 package body My_Min_Ada is
 
@@ -35,12 +34,10 @@ package body My_Min_Ada is
    procedure Tx_Byte (
       Data : Min_Ada.Byte
    ) is
-      Buffer   : Stream_Element_Array (1 .. 1);
    begin
-      Put_Line ("We are sending: " & Byte'Image (Data));
-      Buffer (Stream_Element_Offset (1)) := Stream_Element (Data);
-      UART_Port.Write (Buffer => Buffer);
-      delay 0.1; --  TODO: Remove delay (probably buffer tx byte calls and the send the whole buffer out in one go)
+      --  Put_Line ("We are sending: " & Byte'Image (Data));
+      Byte'Write(UART_Port'Access, Data);
+      delay 0.1; --  TODO: Remove delay if possible (probably buffer tx byte calls and the send the whole buffer out in one go)
    end Tx_Byte;
 
    --  Overrides Min_Application_Handler

@@ -23,12 +23,7 @@ begin
       Min_Ada.Min_Init_Context (Context => Context);
 
       UART_Port.Open (Name => UART_Port_Name);
-      UART_Port.Set
-        (Rate      => B115200,
-         Bits      => CS8,
-         Stop_Bits => One,
-         Parity    => None,
-         Flow      => None);
+      UART_Port.Set (Rate => B115200);
 
       Override_Min_Application_Handler; --  We must override the handler to process received frames
       Override_Tx_Byte; --  We must override the handler to send MIN data over Serial
@@ -74,8 +69,6 @@ begin
                Payload_Length => M'Length);
             
             My_Min_Ada.Received := False;
-
-            New_Line; 
          end;
       end loop;
 
