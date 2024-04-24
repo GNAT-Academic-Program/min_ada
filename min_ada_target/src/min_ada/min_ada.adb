@@ -170,9 +170,9 @@ package body Min_Ada is
 
             Real_Checksum := GNAT.CRC32.Get_Value (Context.Rx_Checksum);
             declare
-               Real2 : CRC_Bytes with Address => Real_Checksum'Address;
+               Checksum_Bytes : CRC_Bytes with Address => Real_Checksum'Address;
             begin
-               if Context.Rx_Frame_Checksum /= Real2 then
+               if Context.Rx_Frame_Checksum /= Checksum_Bytes then
                   --  Frame fails the checksum and is dropped
                   Context.Rx_Frame_State := SEARCHING_FOR_SOF;
                   Put_Line ("Frame dropped!");

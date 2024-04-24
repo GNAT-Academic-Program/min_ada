@@ -12,11 +12,7 @@ package body My_Min_Ada is
 
       Put_Line ("MIN Application Handler callback event.");
 
-      --  Check if first frame ID is 5 (comes from our target device)
-      --  We could reset a buffer here, if needed
-      if ID = 5 then
-         Put_Line ("First frame, has ID" & ID'Image);
-      end if;
+      Put_Line ("Frame has ID" & ID'Image);
 
       --  Loop over all the data in the payload to reconstruct the msg
       for I in 1 .. Integer'Val (Payload_Length) loop

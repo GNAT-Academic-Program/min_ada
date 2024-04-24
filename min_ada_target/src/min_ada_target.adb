@@ -10,8 +10,6 @@ with Screen_Draw;
 procedure Min_Ada_Target is
    App_ID      : constant Min_Ada.App_ID := 5; --  The host program will look for this ID
    Context     : Min_Ada.Min_Context;
-
-   Sent_Count  : Integer := 1;
 begin
    --  Initialize Serial/UART
    Uart_For_Board.Initialize;
@@ -26,7 +24,7 @@ begin
    delay 1.0;
 
    declare
-      Message     : constant String := "Hello World" & Sent_Count'Image & "!"; --  What we want to send, can be anything
+      Message     : constant String := "Hello World!"; --  What we want to send, can be anything
       Payload     : Min_Ada.Min_Payload;  --  The message above needs to be converted to bytes
 
       Rcv_Data    : HAL.UInt16;
@@ -46,8 +44,6 @@ begin
 
       --  Inform the user the message/payload was sent
       Screen_Draw.WriteMsg ("Sent: " & Message);
-
-      Sent_Count := Sent_Count + 1;
 
       loop
          --  Read one byte from serial port

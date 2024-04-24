@@ -1,5 +1,5 @@
 with Ada.Text_IO; use Ada.Text_IO;
-with Interfaces;  use Interfaces;
+--  with Interfaces;  use Interfaces;
 
 package body Min_Ada is
 
@@ -79,8 +79,6 @@ package body Min_Ada is
       Data    : Byte
    ) is
       Real_Checksum  : Interfaces.Unsigned_32;
-      Frame_Checksum : Interfaces.Unsigned_32 with Address =>
-         Context.Rx_Frame_Checksum'Address;
    begin
       if Context.Rx_Header_Bytes_Seen = 2 then
          Context.Rx_Header_Bytes_Seen := 0;
@@ -169,13 +167,17 @@ package body Min_Ada is
             Context.Rx_Frame_Checksum (1) := Data;
 
             Real_Checksum := GNAT.CRC32.Get_Value (Context.Rx_Checksum);
-            if Frame_Checksum /= Real_Checksum then
-               --  Frame fails the checksum and is dropped
-               Context.Rx_Frame_State := SEARCHING_FOR_SOF;
-               Put_Line ("Frame dropped!");
-            else
-               Context.Rx_Frame_State := RECEIVING_EOF;
-            end if;
+            declare
+               Checksum_Bytes : CRC_Bytes with Address => Real_Checksum'Address;
+            begin
+               if Context.Rx_Frame_Checksum /= Checksum_Bytes then
+                  --  Frame fails the checksum and is dropped
+                  Context.Rx_Frame_State := SEARCHING_FOR_SOF;
+                  Put_Line ("Frame dropped!");
+               else
+                  Context.Rx_Frame_State := RECEIVING_EOF;
+               end if;
+            end;
 
          when RECEIVING_EOF =>
             if Data = EOF_BYTE then
@@ -192,6 +194,7 @@ package body Min_Ada is
       Context : Min_Context
    ) is
    begin
+      --  TODO: implement transport functionality
       Min_Application_Handler (
          ID             => App_ID (Context.Rx_Frame_ID_Control),
          Payload        => Context.Rx_Frame_Payload_Buffer,
@@ -285,5 +288,175 @@ package body Min_Ada is
          Put_Line ("Make sure to override Min_Application_Handler");
       end if;
    end Min_Application_Handler;
+
+   --  TRANSPORT LAYER START  --
+
+   -- Claim a buffer slot from the FIFO. Returns 0 if there is no space.
+   function Transport_Fifo_Push(
+      Context     : access Min_Context;
+      Data_Size   : UInt16
+   ) return access Transport_Frame is
+      Queue       : Transport_Fifo with Address => Context.Transport_Queue'Address;
+      Ret         : access Transport_Frame := null;
+   begin
+      -- A frame is only queued if there aren't too many frames in the FIFO and there is space in the
+      -- data ring buffer.
+      if Queue.N_Frames < TRANSPORT_FIFO_MAX_FRAMES then
+         -- Is there space in the ring buffer for the frame payload?
+         if Queue.N_Ring_Buffer_Bytes <= TRANSPORT_FIFO_MAX_FRAME_DATA - Data_Size then
+            Queue.N_Frames := Queue.N_Frames + 1;
+            if Queue.N_Frames > Queue.N_Frames_Max then
+               -- High-water mark of FIFO (for diagnostic purposes)
+               Queue.N_Frames_Max := Queue.N_Frames;
+            end if;
+            -- Create FIFO entry
+            Ret := Queue.Frames (Integer (Queue.Tail_Idx));
+            Ret.Payload_Offset := Queue.Ring_Buffer_Tail_Offset;
+
+            -- Claim ring buffer space
+            Queue.N_Ring_Buffer_Bytes := Queue.N_Ring_Buffer_Bytes + Data_Size;
+            if Queue.N_Ring_Buffer_Bytes > Queue.N_Ring_Buffer_Bytes_Max then
+               -- High-water mark of ring buffer usage (for diagnostic purposes)
+               Queue.N_Ring_Buffer_Bytes_Max := Queue.N_Ring_Buffer_Bytes;
+            end if;
+            Queue.Ring_Buffer_Tail_Offset := Queue.Ring_Buffer_Tail_Offset + Data_Size;
+            Queue.Ring_Buffer_Tail_Offset := Queue.Ring_Buffer_Tail_Offset and TRANSPORT_FIFO_SIZE_FRAMES_MASK;
+
+            -- Claim FIFO space
+            Queue.Tail_Idx := Queue.Tail_Idx + 1;
+            Queue.Tail_Idx := Queue.Tail_Idx and TRANSPORT_FIFO_SIZE_FRAMES_MASK;
+         end if;
+      end if;
+
+      return Ret;
+   end Transport_Fifo_Push;
+
+
+   procedure Transport_Fifo_Pop (
+      Context  : in out Min_Context
+   ) is
+      Queue    : Transport_Fifo with Address => Context.Transport_Queue'Address;
+      Frame    : Transport_Frame with Address => Queue.Frames (Integer (Queue.Head_Idx))'Address;
+   begin
+      Queue.N_Frames := Queue.N_Frames - 1;
+      Queue.Head_Idx :=  (Queue.Head_Idx + 1) and TRANSPORT_FIFO_SIZE_FRAMES_MASK;
+      Queue.N_Ring_Buffer_Bytes := Queue.N_Ring_Buffer_Bytes - UInt16 (Frame.Payload_Length);
+   end Transport_Fifo_Pop;
+
+   function Transport_Fifo_Get (
+      Context  : in out Min_Context;
+      N        : Byte
+   ) return Transport_Frame is
+      Queue    : Transport_Fifo with Address => Context.Transport_Queue'Address;
+      Idx      : constant Byte := Queue.Head_Idx;
+   begin
+      return Queue.Frames (Integer ((Idx + N) and TRANSPORT_FIFO_SIZE_FRAMES_MASK)); --  FIXME
+   end Transport_Fifo_Get;
+
+   procedure Transport_Fifo_Reset (
+      Context  : in out Min_Context
+   ) is
+      Queue    : Transport_Fifo with Address => Context.Transport_Queue'Address;
+   begin
+      --  Clear down the transmission FIFO queue
+      Queue.N_Frames := 0;
+      Queue.Head_Idx := 0;
+      Queue.Tail_Idx := 0;
+      Queue.N_Ring_Buffer_Bytes := 0;
+      Queue.Ring_Buffer_Tail_Offset := 0;
+      Queue.Sn_Max := 0;
+      Queue.Sn_Min := 0;
+      Queue.Rn := 0;
+
+      --  Reset the timers
+      Queue.Last_Received_Anything_Ms := Now;
+      Queue.Last_Sent_Ack_Time_Ms := Now;
+      Queue.Last_Received_Frame_Ms := 0;
+   end Transport_Fifo_Reset;
+
+   procedure Send_Ack (
+      Context : in out Min_Context
+   ) is
+   begin
+      --  In the embedded end we don't reassemble out-of-order frames and so never ask for retransmits. Payload is
+      --  always the same as the sequence number.
+
+      --  if (ON_WIRE_SIZE(0) <= min_tx_space(self->port)) {
+      --    on_wire_bytes(self, ACK, self->transport_fifo.rn, &self->transport_fifo.rn, 0, 0xffU, 1U);
+      --    self->transport_fifo.last_sent_ack_time_ms = now;
+      --  }
+      null;
+   end Send_Ack;
+
+   procedure Send_Reset (
+      Context : in out Min_Context
+   ) is
+   begin
+      null; --  TODO
+   end Send_Reset;
+
+   procedure Transport_Reset (
+      Context           : in out Min_Context;
+      Inform_Other_Side : Boolean
+   ) is
+   begin
+      if Inform_Other_Side then
+         --  Tell the other end we have gone away
+        Send_Reset (Context => Context);
+      end if;
+
+      -- Throw our frames away
+      Transport_Fifo_Reset (Context => Context);
+   end Transport_Reset;
+
+   function Queue_Frame (
+      Context        : in out Min_Context;
+      ID             : App_ID;
+      Payload        : Min_Payload;
+      Payload_Length : Byte
+   ) return Boolean is
+      Frame       : access Transport_Frame := null;
+      Offset      : UInt16;
+   begin
+      --  Claim a FIFO slot, reserve space for payload
+      Frame := Transport_Fifo_Push(Context => Context, Data_Size => UInt16 (Payload_Length));
+
+      --  We are just queueing here: the poll() function puts the frame into the window and on to the wire
+      if Frame = null then --  TODO: check this logic
+         Context.Transport_Queue.Dropped_Frames := Context.Transport_Queue.Dropped_Frames + 1;
+         return False;
+      else
+         Frame := Context.Transport_Queue.Frames (Frame_Idx);  --  FIXME: This is entirely wrong
+
+         --  Copy frame details into frame slot, copy payload into ring buffer
+         Frame.Min_Id := Byte (ID and 16#3F#);
+         Frame.Payload_Length := Payload_Length;
+
+         Offset := Frame.Payload_Offset;
+         For I in 1 .. Payload_Length loop
+               Payloads_Ring_Buffer (Integer (Offset)) := Payload (I);
+               Offset := UInt16 ((Offset + 1) and TRANSPORT_FIFO_SIZE_FRAMES_MASK);
+         end loop;
+
+         return True;
+      end if;
+   end Queue_Frame;
+
+   procedure Queue_Has_Space (
+      Context        : in out Min_Context;
+      Payload_Length : Byte
+   ) is
+   begin
+      null;
+   end Queue_Has_Space;
+
+   procedure Poll(
+      Context        : in out Min_Context;
+      Buffer         : out Min_Payload;
+      Buffer_Length  : out Byte
+   ) is
+   begin
+      null;
+   end Poll;
 
 end Min_Ada;
